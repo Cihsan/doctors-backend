@@ -9,26 +9,71 @@ app.use(cors()) //
 app.use(express.json()) //for parse
 
 app.get('/', (req, res) => {
-    res.send('Welcome To Goods Store Server')
+    res.send('Welcome To Doctors-Portal Server')
 })
 
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.lnkho.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ln8eq.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 async function run() {
     try {
         await client.connect()
-        // const goodsStore = client.db("goodsDB").collection("goods");
-        // const myItemStore = client.db("myItemDB").collection("myItems");
-        const doctPortal = client.db("portal").collection("doctorsInfo");
+
+        const doctPortal = client.db("doctor-service").collection("services");
+        const bookedCollection = client.db("booked-service").collection("booked");
+        const userCollection = client.db("user-service").collection("users");
 
         //get
-        /* app.get('/my-items', async (req, res) => {
+        app.get('/services', async (req, res) => {
             const query = {}
-            const cursor = myItemStore.find(query)
-            const result = await cursor.toArray()
+            const result = await doctPortal.find(query).toArray()
             res.send(result)
-        }) */
+        })
+
+        //modal
+        app.post('/booking', async (req, res) => {
+            const booking = req.body;
+            const query = { treatment: booking.treatment, date: booking.date, patient: booking.patient }
+            const exists = await bookedCollection.findOne(query);
+            if (exists) {
+                return res.send({ success: false, booking: exists })
+            }
+            const result = await bookedCollection.insertOne(booking);
+            return res.send({ success: true, result });
+        })
+        //myappointment
+        app.get('/booking', async (req, res) => {
+            const patient = req.query.patient
+            const authorization = req.query.authorization
+            const query = {}
+            const result = await bookedCollection.find(query).toArray()
+            res.send(result)
+        })
+        //myappointment
+        app.delete('/booking/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: ObjectId(id) }
+            const result = await bookedCollection.deleteOne(query)
+            res.send(result)
+        })
+        //Sign Up or social login
+        app.put('/user/:email', async (req, res) => {
+            const email = req.params.email
+            const user = req.body
+            const filter = { email: email }
+            const options = { upsert: true }
+            const updateDoc = {
+                $set: user,
+            }
+            const result = await userCollection.updateOne(filter, updateDoc, options)
+            const token = jwt.sign({ email: email }, process.env.VALID_TOKEN,/* { expiresIn: '1h' } */)
+            res.send({ result, token })
+        })
+        app.get('/user', async (req, res) => {
+            const query = {}
+            const result = await userCollection.find(query).toArray()
+            res.send(result)
+        })
         /* app.delete('/my-items/:id', async (req, res) => {
             const id = req.params.id
             const query = { _id: ObjectId(id) }
